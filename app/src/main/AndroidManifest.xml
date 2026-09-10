@@ -72,6 +72,17 @@
         tools:ignore="DataExtractionRules,MediaCapabilities"
         >
 
+        <!-- MStar/MediaTek TV chipset library, used by MStarImagePlayer for the 4K video
+             plane. Optional: it only exists on those devices, and the code falls back to
+             the normal software path when the classes are missing. -->
+        <uses-library
+            android:name="com.mstar.android"
+            android:required="false" />
+
+        <uses-library
+            android:name="mitvmiddlewareimpl"
+            android:required="false" />
+
         <!-- Default launch point -->
         <activity
             android:name=".ui.MainActivity"

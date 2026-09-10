@@ -3,6 +3,7 @@ package com.neilturner.aerialviews.ui.core
 import android.media.MediaPlayer
 import android.view.SurfaceHolder
 import timber.log.Timber
+import java.lang.reflect.Method
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.math.ceil
@@ -92,7 +93,9 @@ class MStarImagePlayer {
                 return false
             }
             true
-        } catch (ex: Exception) {
+        } catch (ex: Throwable) {
+            // Throwable, not Exception: a missing or mismatched platform class surfaces as
+            // LinkageError (NoSuchFieldError, UnsatisfiedLinkError), which is an Error.
             Timber.w(ex, "MStar: hardware image path failed for $path")
             release()
             false
@@ -104,7 +107,7 @@ class MStarImagePlayer {
         player = null
         try {
             instance.release()
-        } catch (ex: Exception) {
+        } catch (ex: Throwable) {
             Timber.w(ex, "MStar: release failed")
         }
     }
@@ -170,10 +173,54 @@ class MStarImagePlayer {
         private const val INFO_FRAME_READY = 3
         private const val FRAME_TIMEOUT_MS = 4000L
 
+        private var exemptionAttempted = false
+
+        /**
+         * MMediaPlayer's static initialiser calls native_init(), which looks up
+         * android.media.MediaPlayer#mNativeContext over JNI. That field is on the dark
+         * greylist, so the platform denies it and class initialisation dies with
+         * NoSuchFieldError. Asking the runtime to exempt the class lifts that.
+         *
+         * Must run before the class is loaded at all - Class.forName(String) initialises it,
+         * so by the time anything else runs it is already too late.
+         *
+         * The double reflection is required: reaching VMRuntime through plain reflection is
+         * itself blocked, while calling Class#getDeclaredMethod reflectively is not, since the
+         * caller then appears to be the platform rather than this app.
+         */
+        private fun exemptMediaPlayerFromHiddenApi() {
+            if (exemptionAttempted) return
+            exemptionAttempted = true
+            try {
+                val forName = Class::class.java.getDeclaredMethod("forName", String::class.java)
+                val getDeclaredMethod =
+                    Class::class.java.getDeclaredMethod(
+                        "getDeclaredMethod",
+                        String::class.java,
+                        arrayOf<Class<*>>()::class.java,
+                    )
+                val vmRuntime = forName.invoke(null, "dalvik.system.VMRuntime") as Class<*>
+                val getRuntime =
+                    getDeclaredMethod.invoke(vmRuntime, "getRuntime", arrayOf<Class<*>>()) as Method
+                val setExemptions =
+                    getDeclaredMethod.invoke(
+                        vmRuntime,
+                        "setHiddenApiExemptions",
+                        arrayOf<Class<*>>(Array<String>::class.java),
+                    ) as Method
+                setExemptions.invoke(getRuntime.invoke(null), arrayOf("Landroid/media/MediaPlayer;"))
+                Timber.i("MStar: hidden API exemption applied")
+            } catch (ex: Throwable) {
+                Timber.w(ex, "MStar: could not apply hidden API exemption")
+            }
+        }
+
         private val mediaPlayerClass: Class<*>? by lazy {
+            exemptMediaPlayerFromHiddenApi()
             try {
                 Class.forName("com.mstar.android.media.MMediaPlayer")
-            } catch (_: Throwable) {
+            } catch (ex: Throwable) {
+                Timber.w(ex, "MStar: MMediaPlayer unavailable")
                 null
             }
         }

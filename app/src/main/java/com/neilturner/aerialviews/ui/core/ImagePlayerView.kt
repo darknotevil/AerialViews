@@ -329,11 +329,22 @@ class ImagePlayerView : FrameLayout {
             return false
         }
 
-        val path = localJpegPath(media) ?: return false
-        val (imageWidth, imageHeight) = imageBounds(path) ?: return false
+        val path = localJpegPath(media)
+        if (path == null) {
+            Timber.d("Video plane: not a readable local JPEG, using the software path")
+            return false
+        }
+
+        val bounds = imageBounds(path)
+        if (bounds == null) {
+            Timber.d("Video plane: could not read image bounds for $path")
+            return false
+        }
+        val (imageWidth, imageHeight) = bounds
 
         val (screenWidth, screenHeight) = withContext(Dispatchers.Main) { resolveTargetSize() }
         if (imageWidth <= screenWidth && imageHeight <= screenHeight) {
+            Timber.d("Video plane: ${imageWidth}x$imageHeight fits the ${screenWidth}x$screenHeight UI, no gain")
             return false
         }
 
