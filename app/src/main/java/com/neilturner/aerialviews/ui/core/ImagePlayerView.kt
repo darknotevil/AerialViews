@@ -1,11 +1,14 @@
 package com.neilturner.aerialviews.ui.core
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.util.AttributeSet
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
@@ -31,13 +34,17 @@ import com.neilturner.aerialviews.ui.core.ImagePlayerHelper.buildOkHttpClient
 import com.neilturner.aerialviews.ui.helpers.BitmapHelper
 import com.neilturner.aerialviews.utils.FirebaseHelper
 import com.neilturner.aerialviews.utils.filename
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import me.kosert.flowbus.GlobalBus
 import timber.log.Timber
 import java.io.BufferedInputStream
+import java.io.File
 import java.io.InputStream
 import java.io.PushbackInputStream
 import kotlin.time.Duration.Companion.milliseconds
@@ -88,6 +95,11 @@ class ImagePlayerView : FrameLayout {
         GeneralPrefs.progressBarLocation != ProgressBarLocation.DISABLED &&
             GeneralPrefs.progressBarType != ProgressBarType.VIDEOS
 
+    // MStar/MediaTek TVs only - see MStarImagePlayer and showOnVideoPlane()
+    private var hardwareSurface: SurfaceView? = null
+    private var hardwarePlayer: MStarImagePlayer? = null
+    private var hardwareSurfaceReady: CompletableDeferred<SurfaceHolder>? = null
+
     private val blurHelper =
         BackgroundBlurHelper(
             backgroundImageView = backgroundImageView,
@@ -103,6 +115,7 @@ class ImagePlayerView : FrameLayout {
     }
 
     fun release() {
+        releaseVideoPlane()
         ioJob.cancel()
         mainJob.cancel()
         removeCallbacks(finishedRunnable)
@@ -123,6 +136,8 @@ class ImagePlayerView : FrameLayout {
 
     fun setImage(media: AerialMedia) {
         ioScope.launch {
+            if (showOnVideoPlane(media)) return@launch
+
             val baseStream = ImagePlayerHelper.streamFromMedia(context, media)
             if (baseStream == null) {
                 loadImage(media, stripCredentialsForCoil(media))
@@ -298,8 +313,126 @@ class ImagePlayerView : FrameLayout {
         return ImagePlayerHelper.stripUserinfoFromUri(media.uri)
     }
 
+    /**
+     * Puts the image straight on the TV's video plane instead of drawing it into the UI.
+     *
+     * On MStar/MediaTek sets the Android display is a single 1920x1080 mode while the panel is
+     * 4K, so a high resolution photo drawn normally is downscaled to 1080p and then upscaled
+     * again by the panel. The video plane runs at the panel's own resolution, so the detail
+     * survives. Only worth it when the photo actually carries more than the UI can show.
+     *
+     * Returns false whenever anything does not line up, and the caller then loads the image
+     * the usual way - which is also what happens on every non-MStar device.
+     */
+    private suspend fun showOnVideoPlane(media: AerialMedia): Boolean {
+        if (!GeneralPrefs.mstarImagePlaneEnabled || !MStarImagePlayer.isAvailable) {
+            return false
+        }
+
+        val path = localJpegPath(media) ?: return false
+        val (imageWidth, imageHeight) = imageBounds(path) ?: return false
+
+        val (screenWidth, screenHeight) = withContext(Dispatchers.Main) { resolveTargetSize() }
+        if (imageWidth <= screenWidth && imageHeight <= screenHeight) {
+            return false
+        }
+
+        val holder = awaitHardwareSurface() ?: return false
+        val player = hardwarePlayer ?: MStarImagePlayer().also { hardwarePlayer = it }
+
+        if (!player.show(holder, path, imageWidth, imageHeight)) {
+            withContext(Dispatchers.Main) { releaseVideoPlane() }
+            return false
+        }
+
+        Timber.i("Showing $path on the video plane at ${imageWidth}x$imageHeight")
+        withContext(Dispatchers.Main) {
+            // The frame sits below the UI, so anything the UI would draw for this image has
+            // to get out of the way or it would cover the plane.
+            blurHelper.cancel()
+            backgroundImageView.visibility = GONE
+            setForegroundDrawable(null)
+            // Bypasses setupFinishedRunnable() because there is no blur token to wait on.
+            runSetupFinishedRunnable()
+        }
+        return true
+    }
+
+    /** The hardware decoder takes a readable JPEG path, so anything else is not eligible. */
+    private fun localJpegPath(media: AerialMedia): String? {
+        if (media.source != AerialMediaSource.LOCAL) return null
+
+        val scheme = media.uri.scheme
+        if (scheme != null && scheme != "file") return null
+
+        val path = media.uri.path
+        if (path.isNullOrEmpty()) return null
+        if (!path.endsWith(".jpg", true) && !path.endsWith(".jpeg", true)) return null
+
+        return path.takeIf { File(it).canRead() }
+    }
+
+    private fun imageBounds(path: String): Pair<Int, Int>? {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, options)
+        if (options.outWidth <= 0 || options.outHeight <= 0) return null
+        return options.outWidth to options.outHeight
+    }
+
+    /**
+     * A SurfaceView is what punches the hole in the UI that the video plane shows through, and
+     * the platform only creates the surface once the view is visible, so this waits for the
+     * callback rather than assuming it is ready.
+     */
+    private suspend fun awaitHardwareSurface(): SurfaceHolder? {
+        val ready =
+            withContext(Dispatchers.Main) {
+                val view = hardwareSurface ?: createHardwareSurface()
+                hardwareSurfaceReady ?: CompletableDeferred<SurfaceHolder>().also {
+                    hardwareSurfaceReady = it
+                    view.visibility = VISIBLE
+                }
+            }
+        return withTimeoutOrNull(SURFACE_TIMEOUT_MS) { ready.await() }
+    }
+
+    private fun createHardwareSurface(): SurfaceView {
+        val view = SurfaceView(context)
+        view.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        view.visibility = GONE
+        view.holder.addCallback(
+            object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                    hardwareSurfaceReady?.complete(holder)
+                }
+
+                override fun surfaceChanged(
+                    holder: SurfaceHolder,
+                    format: Int,
+                    width: Int,
+                    height: Int,
+                ) = Unit
+
+                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                    hardwareSurfaceReady = null
+                }
+            },
+        )
+        hardwareSurface = view
+        // Below the image views so a software-drawn image always covers the hole.
+        addView(view, 0)
+        return view
+    }
+
+    private fun releaseVideoPlane() {
+        hardwarePlayer?.release()
+        hardwarePlayer = null
+        hardwareSurface?.visibility = GONE
+    }
+
     companion object {
         private const val STREAM_BUFFER_SIZE = 64 * 1024 // 64KB - helps reduce network round-trips
+        private const val SURFACE_TIMEOUT_MS = 2000L
     }
 
     private fun resolveTargetSize(): Pair<Int, Int> {
@@ -316,6 +449,7 @@ class ImagePlayerView : FrameLayout {
     }
 
     fun stop() {
+        releaseVideoPlane()
         removeCallbacks(finishedRunnable)
         setForegroundDrawable(null)
         pausedTimestamp = 0
