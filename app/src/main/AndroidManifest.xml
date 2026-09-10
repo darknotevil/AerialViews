@@ -116,7 +116,17 @@
         <activity
             android:exported="true"
             android:name=".ui.screensaver.TestActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize" />
+            android:configChanges="orientation|keyboardHidden|screenSize">
+
+            <!-- MIUI TV (Xiaomi/Redmi TV, Android 9) has no working system Dream.
+                 Its own screensaver app (com.mitv.screensaver) fires this action
+                 instead, so claiming it lets Aerial Views replace the stock
+                 gallery screensaver without root. -->
+            <intent-filter>
+                <action android:name="com.mitv.gallery.action.SHOW_SCREENSAVER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Dream Service/Activity can only be called by the system! -->
         <service
