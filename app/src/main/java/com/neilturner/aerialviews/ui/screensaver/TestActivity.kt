@@ -17,7 +17,7 @@ import com.neilturner.aerialviews.ui.helpers.WindowHelper.hideSystemUI
 import com.neilturner.aerialviews.utils.FirebaseHelper
 import timber.log.Timber
 
-class TestActivity : AppCompatActivity() {
+open class TestActivity : AppCompatActivity() {
     private lateinit var screenController: ScreenController
 
     override fun onCreate(savedInstanceState: Bundle?) {

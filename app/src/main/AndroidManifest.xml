@@ -116,14 +116,25 @@
         <activity
             android:exported="true"
             android:name=".ui.screensaver.TestActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize">
+            android:configChanges="orientation|keyboardHidden|screenSize" />
 
-            <!-- MIUI TV (Xiaomi/Redmi TV, Android 9) has no working system Dream.
-                 Its own screensaver app (com.mitv.screensaver) fires this action
-                 instead, so claiming it lets Aerial Views replace the stock
-                 gallery screensaver without root. -->
+        <!-- MIUI TV (Xiaomi/Redmi TV, Android 9) has no working system Dream.
+             Its own screensaver app (com.mitv.screensaver) fires this action
+             instead, so claiming it lets Aerial Views replace the stock gallery
+             screensaver without root. Needs a task of its own - see
+             MiTvScreensaverActivity for why. -->
+        <activity
+            android:name=".ui.screensaver.MiTvScreensaverActivity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="${applicationId}.screensaver"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <intent-filter>
                 <action android:name="com.mitv.gallery.action.SHOW_SCREENSAVER" />
+                <action android:name="com.mitv.gallery.action.SHOW_SCREENSAVER_FRAME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
