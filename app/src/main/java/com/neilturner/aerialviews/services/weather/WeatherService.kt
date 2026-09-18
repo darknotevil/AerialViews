@@ -42,6 +42,10 @@ class WeatherService(
     private val rateLimitDelay = 1.minutes // Delay for rate limiting
     private val retryDelay = 30.seconds // Delay before retrying after an error
 
+    /** The key entered in Settings wins over the one baked into the build, if any. */
+    private val apiKey: String
+        get() = GeneralPrefs.weatherApiKey.trim().ifEmpty { BuildConfig.OPEN_WEATHER }
+
     private val openWeatherClient by lazy {
         apiOverride
             ?: Retrofit
@@ -55,7 +59,7 @@ class WeatherService(
 
     suspend fun lookupLocation(query: String): List<LocationResponse> =
         try {
-            val key = BuildConfig.OPEN_WEATHER
+            val key = apiKey
             val language = WeatherLanguage.getLanguageCode(context)
             val response = openWeatherClient.getLocationByName(query, 10, key, language)
             delay(lookupDelay)
@@ -94,7 +98,7 @@ class WeatherService(
         lon: Double,
     ): List<LocationResponse> =
         try {
-            val key = BuildConfig.OPEN_WEATHER
+            val key = apiKey
             val language = WeatherLanguage.getLanguageCode(context)
             val response = openWeatherClient.getLocationByCoordinates(lat, lon, 5, key, language)
             delay(lookupDelay)
@@ -165,7 +169,7 @@ class WeatherService(
     }
 
     internal fun buildRequestConfig(): WeatherRequestConfig? {
-        val key = BuildConfig.OPEN_WEATHER
+        val key = apiKey
         val lat = GeneralPrefs.weatherLocationLat.toDoubleOrNull()
         val lon = GeneralPrefs.weatherLocationLon.toDoubleOrNull()
         val units = GeneralPrefs.weatherTemperatureUnits?.toString()?.lowercase() ?: "metric"

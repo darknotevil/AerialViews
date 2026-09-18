@@ -21,4 +21,16 @@
             app:summary="@string/weather_location_custom_summary"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/category_weather_api_key">
+        <Preference
+            app:selectable="false"
+            app:summary="@string/weather_api_key_info"
+            />
+
+        <EditTextPreference
+            app:key="weather_api_key"
+            app:title="@string/weather_api_key_title"
+            app:summary="@string/weather_api_key_summary" />
+    </PreferenceCategory>
 </PreferenceScreen>

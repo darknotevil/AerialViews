@@ -55,6 +55,7 @@ object GeneralPrefs : KotprefModel() {
     var dateSize by stringPref("18", "date_size")
 
     // Weather
+    var weatherApiKey by stringPref("", "weather_api_key")
     var weatherLocationName by stringPref("", "weather_location_name")
     var weatherLocationCustomName by stringPref("", "weather_location_custom_name")
     var weatherLocationLat by stringPref("", "weather_location_lat")
