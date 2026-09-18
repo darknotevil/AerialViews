@@ -12,6 +12,11 @@ A screensaver for Android/Google TV devices and phones including Nvidia Shield, 
 
 Inspired by Apple TV's beautiful video screensaver!
 
+> **This fork** adds support for Xiaomi / Redmi TVs running MIUI TV (Android 9), which have no
+> working system screensaver slot, plus a 4K photo path on MStar/MediaTek TV chipsets and an
+> in-app OpenWeather API key field. See [Xiaomi MIUI TV](#xiaomi--redmi-tvs-miui-tv) below.
+> Everything else is upstream [theothernt/AerialViews](https://github.com/theothernt/AerialViews).
+
 *Please read if you have an [Nvidia Shield](#frequently-asked-questions) or [a recent Google TV device.](#how-to-set-aerial-views-as-the-default-screensaver)*
 
 ## Features include...
@@ -424,6 +429,45 @@ Please make sure to enable **Developer Mode** and **USB/Networking Debugging**. 
 
 </details>
 
+## Xiaomi / Redmi TVs (MIUI TV)
+
+Xiaomi's MIUI TV firmware (Android 9, e.g. Mi TV ES Pro, codename `alita`) ignores
+`screensaver_components`: the system Dream never runs. Instead, its own screensaver app
+(`com.mitv.screensaver`) starts the built-in photo gallery through a MIUI-specific intent when
+the TV goes idle. This fork claims that intent, so Aerial Views takes the gallery's place with
+no root, no bootloader unlock, and no ADB commands after installation.
+
+1. Install the APK (`adb install -r app-beta-release.apk`, or any other way). The package
+   installer's "risk detection" prompt can be skipped by installing over ADB.
+2. On the TV go to *Settings → Screensaver* and pick the **photo / gallery** screensaver (the
+   one that shows your own photos, `screensaver_id=9`). Set the idle time as usual.
+3. That is all: the next time the screensaver fires, Aerial Views starts. Back / Home exit it and
+   return to the app you were using.
+
+<details>
+<summary>How it works, and the MStar 4K photo path</summary>
+&nbsp;
+
+`com.mitv.screensaver/RenderActivity` starts the gallery with a bare
+`com.mitv.gallery.action.SHOW_SCREENSAVER` intent and never gets told when the screensaver ends.
+It relies on a trick: it posts its own `finish()` 5 s later and cancels that in `onStop()`,
+which only works because the stock gallery screensaver is a translucent activity. Aerial Views'
+`MiTvScreensaverActivity` therefore starts translucent (with a black background), converts
+itself to opaque once RenderActivity is gone, and runs in a task of its own so that the stock
+caller's task is left intact.
+
+The Android UI on these TVs is composited at 1080p and then upscaled by the panel. Photos larger
+than the UI can be decoded straight to the chipset's 4K video plane through
+`com.mstar.android.media.MMediaPlayer` (*Settings → Advanced → Media render options →
+"Show large photos on the MStar video plane"*). This currently handles local JPEG files only;
+everything else, and every non-MStar device, uses the normal software path. The first ~8 s of a
+session always use the software path while the caller is still underneath.
+
+Backlight dimming is not available on this firmware from a normal app: use the *Brightness*
+option, which dims the video plane as well.
+
+</details>
+
 ## Frequently asked questions
 
 Please click or tap to expand each item below...
@@ -763,6 +807,13 @@ Views") and press "Create new app password" button.
 ## Weather data
 
 Thanks to [OpenWeather](https://openweathermap.org/) for providing weather data to this and other open-source projects.
+
+Location search and weather overlays need an OpenWeather API key. Official builds ship with one;
+if you build the app yourself, put it into `secrets.properties` in the repository root
+(`openWeather=` for release builds, `openWeatherDebug=` for debug builds), or enter it on the TV
+under *Settings → Location → OpenWeather API key*. A free key from
+[openweathermap.org](https://openweathermap.org/api) is enough; new keys can take an hour or two
+to activate.
 
 [![OpenWeather logo](docs/images/openweather_logo.png)](https://openweathermap.org/)
 
