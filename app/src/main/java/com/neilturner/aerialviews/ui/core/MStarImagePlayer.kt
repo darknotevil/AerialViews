@@ -1,6 +1,7 @@
 package com.neilturner.aerialviews.ui.core
 
 import android.media.MediaPlayer
+import android.os.SystemClock
 import android.view.SurfaceHolder
 import timber.log.Timber
 import java.lang.reflect.Method
@@ -235,5 +236,21 @@ class MStarImagePlayer {
 
         val isAvailable: Boolean
             get() = mediaPlayerClass != null && initParameterClass != null
+
+        @Volatile
+        private var holdUntilUptime = 0L
+
+        /**
+         * Keeps images off the video plane until the given SystemClock.uptimeMillis().
+         * The plane is only visible through a SurfaceView hole in the UI, so a caller that
+         * knows another window is still composited underneath (see MiTvScreensaverActivity)
+         * can ask for the software path in the meantime.
+         */
+        fun holdVideoPlaneUntil(uptimeMillis: Long) {
+            holdUntilUptime = maxOf(holdUntilUptime, uptimeMillis)
+        }
+
+        val isVideoPlaneHeld: Boolean
+            get() = SystemClock.uptimeMillis() < holdUntilUptime
     }
 }

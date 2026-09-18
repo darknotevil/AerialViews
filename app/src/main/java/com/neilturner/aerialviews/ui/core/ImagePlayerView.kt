@@ -328,6 +328,10 @@ class ImagePlayerView : FrameLayout {
         if (!GeneralPrefs.mstarImagePlaneEnabled || !MStarImagePlayer.isAvailable) {
             return false
         }
+        if (MStarImagePlayer.isVideoPlaneHeld) {
+            Timber.d("Video plane: held by the activity, using the software path")
+            return false
+        }
 
         val path = localJpegPath(media)
         if (path == null) {

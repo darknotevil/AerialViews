@@ -4,6 +4,14 @@
         <item name="windowNoTitle">true</item>
     </style>
 
+    <!-- MIUI TV screensaver entry point. Translucent so the caller's activity underneath
+         is only paused, never stopped - see MiTvScreensaverActivity. The black window
+         background keeps it from actually showing through. -->
+    <style name="MiTvScreensaverTheme" parent="DefaultTheme">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
     <style name="OverlayText">
         <item name="android:alpha">1</item>
         <item name="android:fontFamily">sans-serif-thin</item>

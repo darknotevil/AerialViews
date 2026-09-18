@@ -140,9 +140,8 @@
             android:launchMode="singleInstance"
             android:taskAffinity="${applicationId}.screensaver"
             android:excludeFromRecents="true"
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity">
+            android:theme="@style/MiTvScreensaverTheme"
+            android:configChanges="orientation|keyboardHidden|screenSize">
             <intent-filter>
                 <action android:name="com.mitv.gallery.action.SHOW_SCREENSAVER" />
                 <action android:name="com.mitv.gallery.action.SHOW_SCREENSAVER_FRAME" />
