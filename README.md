@@ -1,5 +1,33 @@
 # Aerial Views
 
+Created for Xiaomi mi tv es pro android 9.
+> **This fork** adds support for Xiaomi / Redmi TVs running MIUI TV (Android 9), which have no
+> working system screensaver slot, plus a 4K photo path on MStar/MediaTek TV chipsets and an
+> in-app OpenWeather API key field. See [Xiaomi MIUI TV](#xiaomi--redmi-tvs-miui-tv) below.
+> Everything else is upstream [theothernt/AerialViews](https://github.com/theothernt/AerialViews).
+
+Limitations
+- 4K works only for local files (file://) and JPEG/jpg formats; network sources (SMB/WebDAV/Immich) and streams are not supported, as the decoder only accepts a file path. 
+Applies only if the photo exceeds Full HD resolution on at least one side.
+- The video layer lacks the blurred background effect, scaling, and crossfading between frames. Overlays (clock/weather) remain but are rendered at 1080p.
+- Brightness adjustment in "Aerial Views" mode uses a dimming overlay (reducing contrast) rather than direct panel control; actual backlight control is unavailable in the MIUI TV app (though the overlay method is still effective).
+
+
+How to enable:
+Activation: Install the APK → General Settings → Screensaver Style → Select any "Album Screensaver" option → Wait for the timeout → Select "Aerial Views" as the screensaver app.
+To support local files and 4K, you must grant storage access permission (via the UI or ADB).
+Upload high-quality photos to any folder on `/sdcard` and include them in the controller.
+
+In theory, it works on any MIUI TV firmware.
+
+Suitable alternative via ADB
+1. Storage read permissions:
+`adb shell pm grant com.neilturner.aerialviews android.permission.READ_EXTERNAL_STORAGE`
+2. Set as default screensaver (standard Android Dream path):
+Set secure screensaver_components: `adb shell settings put secure screensaver_components com.neilturner.aerialviews/.ui.screensaver.DreamActivity`
+Set secure screensaver_default_component: `adb shell settings put secure screensaver_default_component com.neilturner.aerialviews/.ui.screensaver.DreamActivity`
+Enable screensaver: `adb shell settings put secure screensaver_enabled 1`
+
 [![Latest GitHub release](https://img.shields.io/github/v/release/theothernt/AerialViews.svg?logo=github&label=GitHub&cacheSeconds=3600)](https://github.com/theothernt/AerialViews/releases/latest)
 [![Google Play Downloads](https://playbadges.pavi2410.com/badge/downloads?id=com.neilturner.aerialviews&pretty)](https://play.google.com/store/apps/details?id=com.neilturner.aerialviews)
 [![GitHub Downloads](https://img.shields.io/github/downloads/theothernt/AerialViews/total?color=blue&label=Downloads&logo=github)](https://github.com/theothernt/AerialViews/releases/latest)
@@ -12,10 +40,7 @@ A screensaver for Android/Google TV devices and phones including Nvidia Shield, 
 
 Inspired by Apple TV's beautiful video screensaver!
 
-> **This fork** adds support for Xiaomi / Redmi TVs running MIUI TV (Android 9), which have no
-> working system screensaver slot, plus a 4K photo path on MStar/MediaTek TV chipsets and an
-> in-app OpenWeather API key field. See [Xiaomi MIUI TV](#xiaomi--redmi-tvs-miui-tv) below.
-> Everything else is upstream [theothernt/AerialViews](https://github.com/theothernt/AerialViews).
+
 
 *Please read if you have an [Nvidia Shield](#frequently-asked-questions) or [a recent Google TV device.](#how-to-set-aerial-views-as-the-default-screensaver)*
 
