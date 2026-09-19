@@ -19,6 +19,9 @@ android {
     compileSdk = 37
 
     var betaVersion = ""
+    // Release counter of the MIUI TV fork, appended to the upstream version name
+    // (e.g. 1.8.5-beta9-mitv3). Bump it for every build handed out from this fork.
+    val mitvRelease = 3
     val keyProps = loadProperties("secrets.properties")
     defaultConfig {
         applicationId = "com.neilturner.aerialviews"
@@ -75,6 +78,7 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             // isPseudoLocalesEnabled = true
+            versionNameSuffix = "-mitv$mitvRelease"
         }
         release {
             isMinifyEnabled = true
@@ -88,6 +92,7 @@ android {
             manifestPlaceholders["analyticsCollectionEnabled"] = true
             manifestPlaceholders["crashlyticsCollectionEnabled"] = true
             manifestPlaceholders["performanceCollectionEnabled"] = true
+            versionNameSuffix = "-mitv$mitvRelease"
         }
     }
 
