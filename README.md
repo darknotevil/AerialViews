@@ -8,8 +8,8 @@ Created for Xiaomi mi tv es pro android 9.
 
 Limitations
 - 4K works only for local files (file://) and JPEG/jpg formats; network sources (SMB/WebDAV/Immich) and streams are not supported, as the decoder only accepts a file path. 
-Applies only if the photo exceeds Full HD resolution on at least one side.
-- The video layer lacks the blurred background effect, scaling, and crossfading between frames. Overlays (clock/weather) remain but are rendered at 1080p.
+By default it applies only if the photo exceeds Full HD resolution on at least one side; *Also photos that fit the 1080p UI* sends every local JPEG to the video plane instead.
+- The video layer lacks the blurred background effect and crossfading between frames. Overlays (clock/weather) remain but are rendered at 1080p. Photos are scaled to the screen (fit or fill-with-crop, following the photo scaling settings) and EXIF orientation is honoured.
 - Brightness adjustment in "Aerial Views" mode uses a dimming overlay (reducing contrast) rather than direct panel control; actual backlight control is unavailable in the MIUI TV app (though the overlay method is still effective).
 
 
@@ -484,9 +484,17 @@ caller's task is left intact.
 The Android UI on these TVs is composited at 1080p and then upscaled by the panel. Photos larger
 than the UI can be decoded straight to the chipset's 4K video plane through
 `com.mstar.android.media.MMediaPlayer` (*Settings → Advanced → Media render options →
-"Show large photos on the MStar video plane"*). This currently handles local JPEG files only;
+"Show photos on the 4K video plane"*). This currently handles local JPEG files only;
 everything else, and every non-MStar device, uses the normal software path. The first ~8 s of a
 session always use the software path while the caller is still underneath.
+
+Some findings about that decoder, measured on a Mi TV ES Pro: it decodes at full size (no
+need for the 1/2, 1/4 sampling the stock gallery uses, which halves anything over 3840 px)
+and shrinks an oversized photo to the 3840x2160 plane on its own, but a smaller photo lands
+1:1 in the centre of the plane - the `scaleX/scaleY` of `InitParameter` are ignored, only
+`ImageScale` / `ImageRotateAndScale` *after* the first frame is up take effect, and each of
+those calls replaces the previous transform. `ImageRotate` takes degrees, not the 0/2/4/6
+codes the stock gallery passes. EXIF orientation is not applied by the decoder.
 
 Backlight dimming is not available on this firmware from a normal app: use the *Brightness*
 option, which dims the video plane as well.

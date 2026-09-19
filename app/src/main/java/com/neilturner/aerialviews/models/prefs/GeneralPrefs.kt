@@ -250,6 +250,7 @@ object GeneralPrefs : KotprefModel() {
     var photoBackgroundBlurOpacity by stringPref("40", "photo_background_blur_opacity")
     var photoBackgroundBlurIntensity by stringPref("80", "photo_background_blur_intensity")
     var mstarImagePlaneEnabled by booleanPref(false, "mstar_image_plane_enabled")
+    var mstarImagePlaneAllPhotos by booleanPref(false, "mstar_image_plane_all_photos")
 
     // D-pad
     var buttonLeftPress by nullableEnumValuePref(ButtonType.SKIP_PREVIOUS, "button_left_press")

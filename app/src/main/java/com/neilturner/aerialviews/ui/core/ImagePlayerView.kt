@@ -12,6 +12,7 @@ import android.view.SurfaceView
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.exifinterface.media.ExifInterface
 import coil3.ImageLoader
 import coil3.asDrawable
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
@@ -345,17 +346,29 @@ class ImagePlayerView : FrameLayout {
             return false
         }
         val (imageWidth, imageHeight) = bounds
+        val rotation = exifRotation(path)
+        val upright = rotation == 90 || rotation == 270
+        val shownWidth = if (upright) imageHeight else imageWidth
+        val shownHeight = if (upright) imageWidth else imageHeight
 
         val (screenWidth, screenHeight) = withContext(Dispatchers.Main) { resolveTargetSize() }
-        if (imageWidth <= screenWidth && imageHeight <= screenHeight) {
-            Timber.d("Video plane: ${imageWidth}x$imageHeight fits the ${screenWidth}x$screenHeight UI, no gain")
+        val allPhotos = GeneralPrefs.mstarImagePlaneAllPhotos || MStarImagePlayer.PlaneTuning.load().minGate == 0
+        if (!allPhotos && shownWidth <= screenWidth && shownHeight <= screenHeight) {
+            Timber.d("Video plane: ${shownWidth}x$shownHeight fits the ${screenWidth}x$screenHeight UI, no gain")
             return false
         }
 
         val holder = awaitHardwareSurface() ?: return false
         val player = hardwarePlayer ?: MStarImagePlayer().also { hardwarePlayer = it }
 
-        if (!player.show(holder, path, imageWidth, imageHeight)) {
+        val scale =
+            when (AspectRatio.fromDimensions(shownWidth, shownHeight)) {
+                AspectRatio.SQUARE, AspectRatio.PORTRAIT -> GeneralPrefs.photoScalePortrait
+                AspectRatio.LANDSCAPE -> GeneralPrefs.photoScaleLandscape
+            }
+        val fillPlane = scale != PhotoScale.FIT_CENTER
+
+        if (!player.show(holder, path, imageWidth, imageHeight, rotation, fillPlane)) {
             withContext(Dispatchers.Main) { releaseVideoPlane() }
             return false
         }
@@ -393,6 +406,15 @@ class ImagePlayerView : FrameLayout {
         if (options.outWidth <= 0 || options.outHeight <= 0) return null
         return options.outWidth to options.outHeight
     }
+
+    /** EXIF orientation as a clockwise rotation in degrees; the hardware path ignores EXIF. */
+    private fun exifRotation(path: String): Int =
+        try {
+            ExifInterface(path).rotationDegrees
+        } catch (ex: Exception) {
+            Timber.w(ex, "Video plane: could not read EXIF orientation")
+            0
+        }
 
     /**
      * A SurfaceView is what punches the hole in the UI that the video plane shows through, and

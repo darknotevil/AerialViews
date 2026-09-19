@@ -42,6 +42,13 @@
                     app:summary="@string/advanced_mstar_image_plane_summary"
                     app:title="@string/advanced_mstar_image_plane_title" />
 
+                <CheckBoxPreference
+                    app:defaultValue="false"
+                    app:dependency="mstar_image_plane_enabled"
+                    app:key="mstar_image_plane_all_photos"
+                    app:summary="@string/advanced_mstar_image_plane_all_photos_summary"
+                    app:title="@string/advanced_mstar_image_plane_all_photos_title" />
+
                 <ListPreference
                     app:defaultValue="@string/portrait_rotation_default"
                     app:entries="@array/portrait_rotation_entries"
