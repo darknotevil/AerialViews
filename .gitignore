@@ -87,3 +87,6 @@ lint/tmp/
 
 # Secrets file for Act
 .secrets
+
+# Local fork release APKs
+/releases/
